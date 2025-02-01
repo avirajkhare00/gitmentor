@@ -8,6 +8,7 @@ import { DeveloperAnalysis } from "./services/openai";
 import ReactMarkdown from 'react-markdown';
 import { useAnalytics } from './hooks/useAnalytics';
 import toast, { Toaster } from 'react-hot-toast';
+import { RateLimitError } from './components/RateLimitError';
 
 interface AnalysisResponse {
   profile: DeveloperProfile;
@@ -22,12 +23,47 @@ function ProfileAnalysis() {
   const [loadingStates, setLoadingStates] = useState({
     user: false,
     repos: false,
-    analysis: false
+    analysis: {
+      strengths: false,
+      areasForImprovement: false,
+      recommendations: false,
+      technicalAssessment: false
+    }
   });
   const [error, setError] = useState<string | null>(null);
   const [userData, setUserData] = useState<GithubUserData | null>(null);
   const [reposData, setReposData] = useState<Repository[] | null>(null);
-  const [analysisData, setAnalysisData] = useState<DeveloperAnalysis | null>(null);
+  const [analysis, setAnalysis] = useState<Partial<DeveloperAnalysis>>({});
+
+  const submitProfile = async (username: string) => {
+    setError(null);
+    try {
+      const userData = await fetchUserData(username);
+      if (!userData) return;
+      
+      const repos = await fetchRepos(username);
+      if (!repos) return;
+
+      // Calculate language statistics from repositories
+      const languageStats: { [key: string]: number } = {};
+      repos.forEach((repo: Repository) => {
+        if (repo.language) {
+          languageStats[repo.language] = (languageStats[repo.language] || 0) + 1;
+        }
+      });
+
+      const profile: DeveloperProfile = {
+        user: userData,
+        repositories: repos,
+        languageStats
+      };
+
+      await fetchAnalysis(profile);
+    } catch (error: any) {
+      toast.error(error.message || 'An error occurred');
+      setError(error.message);
+    }
+  };
 
   useEffect(() => {
     if (!isInitialized) {
@@ -80,7 +116,7 @@ function ProfileAnalysis() {
     }
   };
 
-  const fetchReposData = async (username: string) => {
+  const fetchRepos = async (username: string) => {
     setLoadingStates(prev => ({ ...prev, repos: true }));
     try {
       trackEvent({
@@ -117,66 +153,126 @@ function ProfileAnalysis() {
   };
 
   const fetchAnalysis = async (profile: DeveloperProfile) => {
-    setLoadingStates(prev => ({ ...prev, analysis: true }));
-    try {
-      trackEvent({
-        action: 'fetch_analysis',
-        category: 'API',
-        label: profile.user.username
-      });
+    // Set all analysis sections to loading
+    setLoadingStates(prev => ({
+      ...prev,
+      analysis: {
+        strengths: true,
+        areasForImprovement: true,
+        recommendations: true,
+        technicalAssessment: true
+      }
+    }));
 
+    try {
       const response = await fetch('/api/analysis/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ profile })
       });
-      
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error);
+        throw new Error('Failed to start analysis');
       }
-      
-      const { analysis } = await response.json();
-      setAnalysisData(analysis);
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('Failed to create stream reader');
+      }
+
+      // Read the stream
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        // Convert the chunk to text
+        const chunk = new TextDecoder().decode(value);
+        const lines = chunk.split('\n');
+
+        // Process each line
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.error) {
+                throw new Error(data.error);
+              }
+
+              if (data.complete) {
+                // Final update with complete analysis
+                setAnalysis(data.analysis);
+                setLoadingStates(prev => ({
+                  ...prev,
+                  analysis: {
+                    strengths: false,
+                    areasForImprovement: false,
+                    recommendations: false,
+                    technicalAssessment: false
+                  }
+                }));
+              } else {
+                // Incremental update
+                setAnalysis(prev => ({
+                  ...prev,
+                  [data.section]: data.data
+                }));
+                setLoadingStates(prev => ({
+                  ...prev,
+                  analysis: {
+                    ...prev.analysis,
+                    [data.section]: false
+                  }
+                }));
+              }
+            } catch (error) {
+              console.error('Error parsing stream data:', error);
+            }
+          }
+        }
+      }
     } catch (error: any) {
-      trackEvent({
-        action: 'error',
-        category: 'API',
-        label: error.message
-      });
-      setError(error.message);
-    } finally {
-      setLoadingStates(prev => ({ ...prev, analysis: false }));
+      console.error('Error during analysis:', error);
+      toast.error(error.message || 'Failed to analyze profile');
+      setLoadingStates(prev => ({
+        ...prev,
+        analysis: {
+          strengths: false,
+          areasForImprovement: false,
+          recommendations: false,
+          technicalAssessment: false
+        }
+      }));
     }
   };
 
-  const submitProfile = async (profileUsername: string) => {
-    if (!profileUsername.trim()) {
-      setError("GitHub username is required");
-      return;
-    }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     
+    // Reset states
     setError(null);
     setUserData(null);
     setReposData(null);
-    setAnalysisData(null);
+    setAnalysis({});
 
     try {
       // Step 1: Fetch user data
-      const user = await fetchUserData(profileUsername);
+      const user = await fetchUserData(username);
+      if (!user) return;
 
       // Step 2: Fetch repositories
-      const repositories = await fetchReposData(profileUsername);
+      const repositories = await fetchRepos(username);
+      if (!repositories) return;
 
-      // Step 3: Calculate language stats
-      const languageStats = repositories.reduce((stats: { [key: string]: number }, repo: Repository) => {
-        Object.entries(repo.languages).forEach(([language, bytes]) => {
-          stats[language] = (stats[language] || 0) + bytes;
+      // Step 3: Calculate language statistics
+      const languageStats = repositories.reduce((acc: Record<string, number>, repo: Repository) => {
+        Object.entries(repo.languages).forEach(([lang, bytes]) => {
+          acc[lang] = (acc[lang] || 0) + bytes;
         });
-        return stats;
-      }, {});
+        return acc;
+      }, {} as Record<string, number>);
 
-      // Step 4: Get analysis
+      // Step 4: Start analysis
       const profile: DeveloperProfile = {
         user,
         repositories,
@@ -187,11 +283,6 @@ function ProfileAnalysis() {
     } catch (error) {
       // Error handling is done in individual fetch functions
     }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await submitProfile(username);
   };
 
   const handleShare = () => {
@@ -237,31 +328,7 @@ function ProfileAnalysis() {
           {title}
         </h3>
         <p className="text-red-700 whitespace-pre-wrap">{error}</p>
-        {isRateLimit && (
-          <div className="mt-4">
-            <p className="text-sm text-red-600 font-medium">
-              To get higher rate limits:
-            </p>
-            <ol className="list-decimal list-inside mt-2 text-sm text-red-600 space-y-1">
-              <li>Create a GitHub personal access token at{' '}
-                <a 
-                  href="https://github.com/settings/tokens" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="underline hover:text-red-800"
-                >
-                  github.com/settings/tokens
-                </a>
-              </li>
-              <li>Add the token to your .env.local file:
-                <pre className="mt-1 ml-4 p-2 bg-red-100 rounded text-red-700 font-mono text-xs">
-                  GITHUB_ACCESS_TOKEN=your_token_here
-                </pre>
-              </li>
-              <li>Restart the development server</li>
-            </ol>
-          </div>
-        )}
+        {isRateLimit && <RateLimitError />}
         {isTimeout && (
           <div className="mt-4">
             <p className="text-sm text-red-600">
@@ -270,7 +337,7 @@ function ProfileAnalysis() {
             <ul className="list-disc list-inside mt-2 text-sm text-red-600 space-y-1">
               <li>Try analyzing a profile with fewer repositories</li>
               <li>Try again during off-peak hours</li>
-              <li>Check if GitHub or OpenAI services are experiencing any outages</li>
+              <li>Take screenshot and share with @avirajkhare00 on Twitter</li>
             </ul>
           </div>
         )}
@@ -304,14 +371,14 @@ function ProfileAnalysis() {
             />
             <button
               type="submit"
-              disabled={loadingStates.user || loadingStates.repos || loadingStates.analysis || !username.trim()}
+              disabled={loadingStates.user || loadingStates.repos || loadingStates.analysis.strengths || loadingStates.analysis.areasForImprovement || loadingStates.analysis.recommendations || loadingStates.analysis.technicalAssessment || !username.trim()}
               className={`px-6 py-2 rounded-md text-white font-medium ${
-                loadingStates.user || loadingStates.repos || loadingStates.analysis || !username.trim()
+                loadingStates.user || loadingStates.repos || loadingStates.analysis.strengths || loadingStates.analysis.areasForImprovement || loadingStates.analysis.recommendations || loadingStates.analysis.technicalAssessment || !username.trim()
                   ? 'bg-blue-400 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700'
               }`}
             >
-              {loadingStates.user || loadingStates.repos || loadingStates.analysis ? (
+              {loadingStates.user || loadingStates.repos || loadingStates.analysis.strengths || loadingStates.analysis.areasForImprovement || loadingStates.analysis.recommendations || loadingStates.analysis.technicalAssessment ? (
                 <span className="flex items-center">
                   <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -388,54 +455,95 @@ function ProfileAnalysis() {
               </div>
             </div>
             {/* Analysis Section */}
-            {loadingStates.analysis ? (
-              <div className="card">
-                <h3 className="text-lg font-semibold mb-4">Analyzing Profile...</h3>
-                {renderLoadingState('analysis')}
-              </div>
-            ) : analysisData && (
-              <div className="space-y-6">
-                <div className="p-6 bg-green-50 rounded-lg">
+            <div className="space-y-6">
+              {/* Key Strengths Section */}
+              {loadingStates.analysis.strengths ? (
+                <div className="p-6 bg-green-50/50 rounded-lg animate-pulse">
+                  <div className="h-6 w-32 bg-green-200 rounded mb-4"></div>
+                  <div className="space-y-3">
+                    <div className="h-4 w-full bg-green-100 rounded"></div>
+                    <div className="h-4 w-5/6 bg-green-100 rounded"></div>
+                    <div className="h-4 w-4/6 bg-green-100 rounded"></div>
+                  </div>
+                </div>
+              ) : analysis.strengths && (
+                <div className="p-6 bg-green-50 rounded-lg animate-fade-in">
                   <h3 className="text-lg font-semibold mb-4 text-green-800">Key Strengths</h3>
                   <ul className="space-y-2 text-green-700">
-                    {analysisData.strengths.map((strength, index) => (
+                    {analysis.strengths?.map((strength, index) => (
                       <li key={index} className="markdown-content">
                         <ReactMarkdown>{strength}</ReactMarkdown>
                       </li>
                     ))}
                   </ul>
                 </div>
+              )}
 
-                <div className="p-6 bg-yellow-50 rounded-lg">
+              {/* Areas for Improvement Section */}
+              {loadingStates.analysis.areasForImprovement ? (
+                <div className="p-6 bg-yellow-50/50 rounded-lg animate-pulse">
+                  <div className="h-6 w-48 bg-yellow-200 rounded mb-4"></div>
+                  <div className="space-y-3">
+                    <div className="h-4 w-full bg-yellow-100 rounded"></div>
+                    <div className="h-4 w-5/6 bg-yellow-100 rounded"></div>
+                    <div className="h-4 w-4/6 bg-yellow-100 rounded"></div>
+                  </div>
+                </div>
+              ) : analysis.areasForImprovement && (
+                <div className="p-6 bg-yellow-50 rounded-lg animate-fade-in">
                   <h3 className="text-lg font-semibold mb-4 text-yellow-800">Areas for Improvement</h3>
                   <ul className="space-y-2 text-yellow-700">
-                    {analysisData.areasForImprovement.map((area, index) => (
+                    {analysis.areasForImprovement?.map((area, index) => (
                       <li key={index} className="markdown-content">
                         <ReactMarkdown>{area}</ReactMarkdown>
                       </li>
                     ))}
                   </ul>
                 </div>
+              )}
 
-                <div className="p-6 bg-blue-50 rounded-lg">
+              {/* Recommendations Section */}
+              {loadingStates.analysis.recommendations ? (
+                <div className="p-6 bg-blue-50/50 rounded-lg animate-pulse">
+                  <div className="h-6 w-40 bg-blue-200 rounded mb-4"></div>
+                  <div className="space-y-3">
+                    <div className="h-4 w-full bg-blue-100 rounded"></div>
+                    <div className="h-4 w-5/6 bg-blue-100 rounded"></div>
+                    <div className="h-4 w-4/6 bg-blue-100 rounded"></div>
+                  </div>
+                </div>
+              ) : analysis.recommendations && (
+                <div className="p-6 bg-blue-50 rounded-lg animate-fade-in">
                   <h3 className="text-lg font-semibold mb-4 text-blue-800">Recommendations</h3>
                   <ul className="space-y-2 text-blue-700">
-                    {analysisData.recommendations.map((recommendation, index) => (
+                    {analysis.recommendations?.map((recommendation, index) => (
                       <li key={index} className="markdown-content">
                         <ReactMarkdown>{recommendation}</ReactMarkdown>
                       </li>
                     ))}
                   </ul>
                 </div>
+              )}
 
-                <div className="p-6 bg-gray-50 rounded-lg">
-                  <h3 className="text-lg font-semibold mb-4">Technical Assessment</h3>
-                  <div className="text-gray-700 markdown-content">
-                    <ReactMarkdown>{analysisData.technicalAssessment}</ReactMarkdown>
+              {/* Technical Assessment Section */}
+              {loadingStates.analysis.technicalAssessment ? (
+                <div className="p-6 bg-gray-50/50 rounded-lg animate-pulse">
+                  <div className="h-6 w-44 bg-gray-200 rounded mb-4"></div>
+                  <div className="space-y-3">
+                    <div className="h-4 w-full bg-gray-100 rounded"></div>
+                    <div className="h-4 w-5/6 bg-gray-100 rounded"></div>
+                    <div className="h-4 w-4/6 bg-gray-100 rounded"></div>
                   </div>
                 </div>
-              </div>
-            )}
+              ) : analysis.technicalAssessment && (
+                <div className="p-6 bg-gray-50 rounded-lg animate-fade-in">
+                  <h3 className="text-lg font-semibold mb-4">Technical Assessment</h3>
+                  <div className="text-gray-700 markdown-content">
+                    <ReactMarkdown>{analysis.technicalAssessment}</ReactMarkdown>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Repositories Section */}
             {loadingStates.repos ? (

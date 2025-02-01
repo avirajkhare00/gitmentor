@@ -8,6 +8,15 @@ export interface DeveloperAnalysis {
   technicalAssessment: string;
 }
 
+export type AnalysisSection = keyof DeveloperAnalysis;
+
+export interface AnalysisUpdate {
+  section: AnalysisSection;
+  data: string[] | string;
+}
+
+export type AnalysisCallback = (update: AnalysisUpdate) => void;
+
 export class OpenAIService {
   private openai: OpenAI;
 
@@ -17,36 +26,39 @@ export class OpenAIService {
     });
   }
 
-  async analyzeDeveloperProfile(profile: DeveloperProfile): Promise<DeveloperAnalysis> {
-    try {
-      // Prepare the data for analysis
-      const totalBytes = Object.values(profile.languageStats).reduce((a, b) => a + b, 0);
-      const languagePercentages = totalBytes > 0
-        ? Object.entries(profile.languageStats)
-            .map(([lang, bytes]) => `${lang}: ${((bytes / totalBytes) * 100).toFixed(1)}%`)
-            .join(', ')
-        : 'Language statistics not available';
+  private prepareProfileData(profile: DeveloperProfile): { languagePercentages: string; repoSummaries: string } {
+    const totalBytes = Object.values(profile.languageStats).reduce((a, b) => a + b, 0);
+    const languagePercentages = totalBytes > 0
+      ? Object.entries(profile.languageStats)
+          .map(([lang, bytes]) => `${lang}: ${((bytes / totalBytes) * 100).toFixed(1)}%`)
+          .join(', ')
+      : 'Language statistics not available';
 
-      const repoSummaries = profile.repositories
-        .map(repo => {
-          const languages = Object.entries(repo.languages).length > 0
-            ? Object.entries(repo.languages)
-                .map(([lang, bytes]) => `${lang} (${((bytes / Object.values(repo.languages).reduce((a, b) => a + b, 0)) * 100).toFixed(1)}%)`)
-                .join(', ')
-            : repo.language || 'Not specified';
+    const repoSummaries = profile.repositories
+      .map(repo => {
+        const languages = Object.entries(repo.languages).length > 0
+          ? Object.entries(repo.languages)
+              .map(([lang, bytes]) => `${lang} (${((bytes / Object.values(repo.languages).reduce((a, b) => a + b, 0)) * 100).toFixed(1)}%)`)
+              .join(', ')
+          : repo.language || 'Not specified';
 
-          return `
+        return `
 Repository: ${repo.name}
 Description: ${repo.description || 'No description'}
 Main Language: ${repo.language || 'Not specified'}
-Languages Used: ${languages}
+Languages: ${languages}
 Stars: ${repo.stargazersCount}
 Forks: ${repo.forksCount}
-Topics: ${repo.topics.join(', ') || 'None'}`;
-        })
-        .join('\n---\n');
+Topics: ${repo.topics.join(', ') || 'None'}
+${repo.isFork ? `Forked: Yes${repo.hasContributions ? `, Contributions: ${repo.contributionsCount}` : ''}` : 'Forked: No'}`;
+      })
+      .join('\n---\n');
 
-      const prompt = `As a developer career advisor, analyze this GitHub profile:
+    return { languagePercentages, repoSummaries };
+  }
+
+  private async getStrengths(profile: DeveloperProfile, languagePercentages: string, repoSummaries: string): Promise<string[]> {
+    const prompt = `As a developer career advisor, analyze this GitHub profile for key strengths:
 
 User: ${profile.user.name || profile.user.username}
 Bio: ${profile.user.bio || 'No bio'}
@@ -61,109 +73,219 @@ ${languagePercentages}
 Top Repositories:
 ${repoSummaries}
 
-Based on this information, provide:
-1. Key strengths (3-4 points)
-2. Areas for improvement (2-3 points)
-3. Specific recommendations for growth (3-4 points)
-4. Brief technical assessment
+Provide 3-4 key strengths of this developer based on their GitHub profile. Focus on technical skills, project diversity, and development practices.
+Format each strength as a clear, concise bullet point.`;
 
-Note: Some repository data might be limited due to API rate limits.
-Focus on actionable insights based on available data.`;
-
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are an experienced technical mentor and career advisor, specializing in developer growth and best practices. Provide constructive feedback even with limited data."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-      });
-
-      const analysis = response.choices[0].message?.content;
-      
-      if (!analysis) {
-        throw new Error('Failed to get analysis from OpenAI');
-      }
-
-      // Parse the response into structured format
-      const sections = analysis.split('\n\n');
-      const strengths: string[] = [];
-      const areasForImprovement: string[] = [];
-      const recommendations: string[] = [];
-      let technicalAssessment = '';
-
-      let currentSection = '';
-      sections.forEach(section => {
-        const lowerSection = section.toLowerCase();
-        if (lowerSection.includes('strength') || lowerSection.startsWith('1.')) {
-          currentSection = 'strengths';
-          const lines = section.split('\n')
-            .filter(line => line.trim() && !line.toLowerCase().includes('strength'))
-            .map(line => line.replace(/^\d+\.\s*|-\s*/, '').trim())
-            .filter(line => line);
-          strengths.push(...lines);
-        } else if (lowerSection.includes('improvement') || lowerSection.startsWith('2.')) {
-          currentSection = 'improvements';
-          const lines = section.split('\n')
-            .filter(line => line.trim() && !line.toLowerCase().includes('improvement'))
-            .map(line => line.replace(/^\d+\.\s*|-\s*/, '').trim())
-            .filter(line => line);
-          areasForImprovement.push(...lines);
-        } else if (lowerSection.includes('recommendation') || lowerSection.startsWith('3.')) {
-          currentSection = 'recommendations';
-          const lines = section.split('\n')
-            .filter(line => line.trim() && !line.toLowerCase().includes('recommendation'))
-            .map(line => line.replace(/^\d+\.\s*|-\s*/, '').trim())
-            .filter(line => line);
-          recommendations.push(...lines);
-        } else if (lowerSection.includes('technical assessment') || lowerSection.startsWith('4.')) {
-          currentSection = 'assessment';
-          const lines = section.split('\n')
-            .filter(line => line.trim() && !line.toLowerCase().includes('technical assessment'))
-            .join('\n')
-            .trim();
-          if (lines) {
-            technicalAssessment = lines;
-          }
-        } else if (section.trim()) {
-          // If we're in a section but the text doesn't start with a new section header,
-          // append it to the current section
-          const lines = section.split('\n')
-            .map(line => line.replace(/^\d+\.\s*|-\s*/, '').trim())
-            .filter(line => line);
-          
-          switch (currentSection) {
-            case 'strengths':
-              strengths.push(...lines);
-              break;
-            case 'improvements':
-              areasForImprovement.push(...lines);
-              break;
-            case 'recommendations':
-              recommendations.push(...lines);
-              break;
-            case 'assessment':
-              technicalAssessment += '\n' + lines.join('\n');
-              break;
-          }
+    const response = await this.openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are an experienced technical mentor focusing on identifying developer strengths. Provide specific, evidence-based strengths."
+        },
+        {
+          role: "user",
+          content: prompt
         }
-      });
+      ],
+      temperature: 0.7,
+    });
 
-      // Ensure we have at least empty arrays/strings for each field
-      return {
-        strengths: strengths.length > 0 ? strengths : ['No strengths identified'],
-        areasForImprovement: areasForImprovement.length > 0 ? areasForImprovement : ['No areas for improvement identified'],
-        recommendations: recommendations.length > 0 ? recommendations : ['No specific recommendations available'],
-        technicalAssessment: technicalAssessment || 'No technical assessment available',
+    const content = response.choices[0].message?.content;
+    if (!content) throw new Error('Failed to get strengths analysis');
+    
+    return content.split('\n')
+      .map(line => line.replace(/^-\s*|\d+\.\s*/, '').trim())
+      .filter(line => line);
+  }
+
+  private async getAreasForImprovement(profile: DeveloperProfile, languagePercentages: string, repoSummaries: string): Promise<string[]> {
+    const prompt = `As a developer career advisor, analyze this GitHub profile for areas of improvement:
+
+User: ${profile.user.name || profile.user.username}
+Bio: ${profile.user.bio || 'No bio'}
+Public Repos: ${profile.user.publicRepos}
+Followers: ${profile.user.followers}
+Following: ${profile.user.following}
+Account Created: ${profile.user.createdAt}
+
+Overall Language Distribution:
+${languagePercentages}
+
+Top Repositories:
+${repoSummaries}
+
+Provide 2-3 specific areas where this developer could improve. Focus on constructive feedback that would enhance their profile and skills.
+Format each area as a clear, concise bullet point.`;
+
+    const response = await this.openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are an experienced technical mentor focusing on identifying areas for developer growth. Provide constructive, actionable feedback."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.7,
+    });
+
+    const content = response.choices[0].message?.content;
+    if (!content) throw new Error('Failed to get areas for improvement analysis');
+    
+    return content.split('\n')
+      .map(line => line.replace(/^-\s*|\d+\.\s*/, '').trim())
+      .filter(line => line);
+  }
+
+  private async getRecommendations(profile: DeveloperProfile, languagePercentages: string, repoSummaries: string): Promise<string[]> {
+    const prompt = `As a developer career advisor, provide specific recommendations for this GitHub profile:
+
+User: ${profile.user.name || profile.user.username}
+Bio: ${profile.user.bio || 'No bio'}
+Public Repos: ${profile.user.publicRepos}
+Followers: ${profile.user.followers}
+Following: ${profile.user.following}
+Account Created: ${profile.user.createdAt}
+
+Overall Language Distribution:
+${languagePercentages}
+
+Top Repositories:
+${repoSummaries}
+
+Provide 3-4 specific recommendations for growth and improvement. Focus on actionable steps that would enhance their profile and career prospects.
+Format each recommendation as a clear, concise bullet point.`;
+
+    const response = await this.openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are an experienced technical mentor focusing on providing actionable recommendations for developer growth. Provide specific, practical advice."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.7,
+    });
+
+    const content = response.choices[0].message?.content;
+    if (!content) throw new Error('Failed to get recommendations analysis');
+    
+    return content.split('\n')
+      .map(line => line.replace(/^-\s*|\d+\.\s*/, '').trim())
+      .filter(line => line);
+  }
+
+  private async getTechnicalAssessment(profile: DeveloperProfile, languagePercentages: string, repoSummaries: string): Promise<string> {
+    const prompt = `As a developer career advisor, provide a technical assessment of this GitHub profile:
+
+User: ${profile.user.name || profile.user.username}
+Bio: ${profile.user.bio || 'No bio'}
+Public Repos: ${profile.user.publicRepos}
+Followers: ${profile.user.followers}
+Following: ${profile.user.following}
+Account Created: ${profile.user.createdAt}
+
+Overall Language Distribution:
+${languagePercentages}
+
+Top Repositories:
+${repoSummaries}
+
+Provide a brief technical assessment of this developer's skills and expertise. Focus on their technical proficiency, project complexity, and development patterns.
+Keep the assessment concise but informative.`;
+
+    const response = await this.openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are an experienced technical mentor focusing on technical assessment. Provide a concise but comprehensive technical evaluation."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.7,
+    });
+
+    const content = response.choices[0].message?.content;
+    if (!content) throw new Error('Failed to get technical assessment');
+    
+    return content.trim();
+  }
+
+  async analyzeDeveloperProfile(
+    profile: DeveloperProfile,
+    onUpdate?: AnalysisCallback
+  ): Promise<DeveloperAnalysis> {
+    try {
+      const { languagePercentages, repoSummaries } = this.prepareProfileData(profile);
+
+      // Create an object to store the analysis results
+      const analysis: DeveloperAnalysis = {
+        strengths: [],
+        areasForImprovement: [],
+        recommendations: [],
+        technicalAssessment: ''
       };
+
+      // Helper function to update a section and notify callback
+      const updateSection = (section: AnalysisSection, data: string[] | string) => {
+        if (section === 'technicalAssessment') {
+          (analysis[section] as string) = data as string;
+        } else {
+          (analysis[section] as string[]) = data as string[];
+        }
+        onUpdate?.({ section, data });
+      };
+
+      // Start all API calls in parallel but handle their results independently
+      const promises = [
+        this.getStrengths(profile, languagePercentages, repoSummaries)
+          .then(data => updateSection('strengths', data))
+          .catch(error => {
+            console.error('Error getting strengths:', error);
+            updateSection('strengths', ['Failed to analyze strengths']);
+          }),
+
+        this.getAreasForImprovement(profile, languagePercentages, repoSummaries)
+          .then(data => updateSection('areasForImprovement', data))
+          .catch(error => {
+            console.error('Error getting areas for improvement:', error);
+            updateSection('areasForImprovement', ['Failed to analyze areas for improvement']);
+          }),
+
+        this.getRecommendations(profile, languagePercentages, repoSummaries)
+          .then(data => updateSection('recommendations', data))
+          .catch(error => {
+            console.error('Error getting recommendations:', error);
+            updateSection('recommendations', ['Failed to get recommendations']);
+          }),
+
+        this.getTechnicalAssessment(profile, languagePercentages, repoSummaries)
+          .then(data => updateSection('technicalAssessment', data))
+          .catch(error => {
+            console.error('Error getting technical assessment:', error);
+            updateSection('technicalAssessment', 'Failed to get technical assessment');
+          })
+      ];
+
+      // Wait for all promises to complete
+      await Promise.all(promises);
+
+      return analysis;
     } catch (error: any) {
-      throw new Error(`Failed to analyze developer profile`);
+      console.error('Error in analyzeDeveloperProfile:', error);
+      throw new Error(`Failed to analyze developer profile: ${error.message}`);
     }
   }
 }
