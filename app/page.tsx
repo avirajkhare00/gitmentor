@@ -22,10 +22,15 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate username format
-    const usernamePattern = /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/;
-    if (!usernamePattern.test(username)) {
-      setError('Please enter a valid GitHub username');
+    const cleanUsername = username.trim();
+    if (!cleanUsername) {
+      setError('Please enter a GitHub username');
+      return;
+    }
+
+    // Simple validation: only allow alphanumeric characters and hyphens
+    if (!/^[\w-]+$/.test(cleanUsername)) {
+      setError('Username can only contain letters, numbers, and hyphens');
       return;
     }
 
@@ -153,12 +158,11 @@ export default function Home() {
                 onChange={(e) => setUsername(e.target.value.trim())}
                 placeholder="Enter GitHub username"
                 className="flex-1 px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                pattern="[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}"
-                title="Please enter a valid GitHub username"
                 required
                 autoCapitalize="none"
                 autoComplete="off"
                 spellCheck="false"
+                inputMode="text"
               />
               <button
                 type="submit"
