@@ -111,7 +111,7 @@ export default function Home() {
       const repositories = await fetchReposData(username);
 
       // Step 3: Calculate language stats
-      const languageStats = repositories.reduce((stats: { [key: string]: number }, repo) => {
+      const languageStats = repositories.reduce((stats: { [key: string]: number }, repo: Repository) => {
         Object.entries(repo.languages).forEach(([language, bytes]) => {
           stats[language] = (stats[language] || 0) + bytes;
         });
