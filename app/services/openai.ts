@@ -71,7 +71,7 @@ Note: Some repository data might be limited due to API rate limits.
 Focus on actionable insights based on available data.`;
 
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
