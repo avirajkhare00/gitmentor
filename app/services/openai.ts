@@ -117,7 +117,7 @@ Focus on actionable insights based on available data.`;
         technicalAssessment,
       };
     } catch (error: any) {
-      throw new Error(`Failed to analyze developer profile: ${error.message}`);
+      throw new Error(`Failed to analyze developer profile`);
     }
   }
 }
