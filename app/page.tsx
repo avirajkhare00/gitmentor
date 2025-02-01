@@ -5,6 +5,7 @@ import Image from "next/image";
 import { DeveloperProfile, GithubUserData, Repository } from "./services/github";
 import { DeveloperAnalysis } from "./services/openai";
 import ReactMarkdown from 'react-markdown';
+import { useAnalytics } from './hooks/useAnalytics'; // Make sure to import useAnalytics from the correct location
 
 interface AnalysisResponse {
   profile: DeveloperProfile;
@@ -12,6 +13,7 @@ interface AnalysisResponse {
 }
 
 export default function Home() {
+  const { trackEvent } = useAnalytics();
   const [username, setUsername] = useState("");
   const [loadingStates, setLoadingStates] = useState({
     user: false,
@@ -26,6 +28,12 @@ export default function Home() {
   const fetchUserData = async (username: string) => {
     setLoadingStates(prev => ({ ...prev, user: true }));
     try {
+      trackEvent({
+        action: 'fetch_user_data',
+        category: 'API',
+        label: username
+      });
+
       const response = await fetch('/api/github/user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -41,6 +49,11 @@ export default function Home() {
       setUserData(user);
       return user;
     } catch (error: any) {
+      trackEvent({
+        action: 'error',
+        category: 'API',
+        label: error.message
+      });
       setError(error.message);
       throw error;
     } finally {
@@ -51,6 +64,12 @@ export default function Home() {
   const fetchReposData = async (username: string) => {
     setLoadingStates(prev => ({ ...prev, repos: true }));
     try {
+      trackEvent({
+        action: 'fetch_repos_data',
+        category: 'API',
+        label: username
+      });
+
       const response = await fetch('/api/github/repos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -66,6 +85,11 @@ export default function Home() {
       setReposData(repositories);
       return repositories;
     } catch (error: any) {
+      trackEvent({
+        action: 'error',
+        category: 'API',
+        label: error.message
+      });
       setError(error.message);
       throw error;
     } finally {
@@ -76,6 +100,12 @@ export default function Home() {
   const fetchAnalysis = async (profile: DeveloperProfile) => {
     setLoadingStates(prev => ({ ...prev, analysis: true }));
     try {
+      trackEvent({
+        action: 'fetch_analysis',
+        category: 'API',
+        label: profile.user.username
+      });
+
       const response = await fetch('/api/analysis/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -90,6 +120,11 @@ export default function Home() {
       const { analysis } = await response.json();
       setAnalysisData(analysis);
     } catch (error: any) {
+      trackEvent({
+        action: 'error',
+        category: 'API',
+        label: error.message
+      });
       setError(error.message);
     } finally {
       setLoadingStates(prev => ({ ...prev, analysis: false }));
