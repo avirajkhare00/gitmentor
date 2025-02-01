@@ -16,11 +16,11 @@ export interface Repository {
   description: string | null;
   language: string | null;
   languages: { [key: string]: number };
-  stargazersCount: number;
-  forksCount: number;
-  updatedAt: string;
+  stargazersCount: number | undefined;
+  forksCount: number | undefined;
+  updatedAt: string | undefined;
   topics: string[];
-  isArchived: boolean;
+  isArchived: boolean | undefined;
   isFork: boolean;
   readme: string | null;
 }
@@ -98,7 +98,7 @@ export class GithubService {
           format: 'raw',
         },
       });
-      return data as string;
+      return data as unknown as string;
     } catch (error: any) {
       await this.handleRateLimitError(error);
       return null;
@@ -143,7 +143,7 @@ export class GithubService {
     try {
       const { data } = await this.octokit.rest.repos.listForUser({
         username,
-        sort: 'stars',
+        sort: 'updated',
         direction: 'desc',
         per_page: 30,
         type: 'owner'
@@ -161,11 +161,11 @@ export class GithubService {
           return {
             name: repo.name,
             description: repo.description,
-            language: repo.language,
+            language: repo.language ?? null,
             languages,
             stargazersCount: repo.stargazers_count,
             forksCount: repo.forks_count,
-            updatedAt: repo.updated_at,
+            updatedAt: repo.updated_at ?? undefined,
             topics: repo.topics || [],
             isArchived: repo.archived,
             isFork: repo.fork,

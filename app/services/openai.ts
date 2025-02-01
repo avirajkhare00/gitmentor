@@ -85,8 +85,12 @@ Focus on actionable insights based on available data.`;
         temperature: 0.7,
       });
 
-      const analysis = response.choices[0].message.content;
+      const analysis = response.choices[0].message?.content;
       
+      if (!analysis) {
+        throw new Error('Failed to get analysis from OpenAI');
+      }
+
       // Parse the response into structured format
       const sections = analysis.split('\n\n');
       const strengths: string[] = [];
