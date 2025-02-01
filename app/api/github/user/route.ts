@@ -16,8 +16,29 @@ export async function POST(request: Request) {
     
     try {
       const user = await githubService.getUserProfile(username);
+      
+      // Log GitHub user data
+      console.log('[GitMentor API] GitHub User Request:', {
+        timestamp: new Date().toISOString(),
+        username: user.username,
+        name: user.name,
+        publicRepos: user.publicRepos,
+        followers: user.followers,
+        following: user.following,
+        createdAt: user.createdAt,
+        requestUrl: request.url
+      });
+
       return NextResponse.json({ user });
     } catch (error: any) {
+      // Log error
+      console.error('[GitMentor API] GitHub User Error:', {
+        timestamp: new Date().toISOString(),
+        username,
+        error: error.message,
+        requestUrl: request.url
+      });
+
       return NextResponse.json(
         { error: error.message },
         { status: error.message.includes('rate limit exceeded') ? 429 : 500 }

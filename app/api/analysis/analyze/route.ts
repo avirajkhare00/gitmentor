@@ -13,6 +13,16 @@ export async function POST(request: Request) {
       );
     }
 
+    // Log analysis request
+    console.log('[GitMentor API] Analysis Started:', {
+      timestamp: new Date().toISOString(),
+      username: profile.user.username,
+      repositoryCount: profile.repositories.length,
+      languages: Object.keys(profile.languageStats),
+      totalRepos: profile.user.publicRepos,
+      requestUrl: request.url
+    });
+
     const openaiService = new OpenAIService();
     const stream = new TransformStream();
     const writer = stream.writable.getWriter();
@@ -30,24 +40,56 @@ export async function POST(request: Request) {
     // Start the analysis process
     openaiService.analyzeDeveloperProfile(profile, async (update) => {
       try {
-        const data = `data: ${JSON.stringify(update)}\n\n`;
-        await writer.write(encoder.encode(data));
-      } catch (error) {
-        console.error('Error writing to stream:', error);
+        // Log each section completion
+        if (update.section) {
+          console.log('[GitMentor API] Analysis Section Completed:', {
+            timestamp: new Date().toISOString(),
+            username: profile.user.username,
+            section: update.section,
+            requestUrl: request.url
+          });
+        }
+
+        const data = encoder.encode(JSON.stringify(update) + '\n');
+        await writer.write(data);
+      } catch (error: unknown) {
+        console.error('[GitMentor API] Analysis Stream Error:', {
+          timestamp: new Date().toISOString(),
+          username: profile.user.username,
+          error: error instanceof Error ? error.message : String(error),
+          requestUrl: request.url
+        });
       }
-    }).then(async (finalAnalysis) => {
-      // Send the final complete analysis
-      const data = `data: ${JSON.stringify({ complete: true, analysis: finalAnalysis })}\n\n`;
-      await writer.write(encoder.encode(data));
+    }).then(async () => {
+      // Log analysis completion
+      console.log('[GitMentor API] Analysis Completed:', {
+        timestamp: new Date().toISOString(),
+        username: profile.user.username,
+        repositoryCount: profile.repositories.length,
+        languages: Object.keys(profile.languageStats),
+        requestUrl: request.url
+      });
+      
       await writer.close();
-    }).catch(async (error) => {
-      const data = `data: ${JSON.stringify({ error: error.message })}\n\n`;
-      await writer.write(encoder.encode(data));
+    }).catch(async (error: unknown) => {
+      console.error('[GitMentor API] Analysis Failed:', {
+        timestamp: new Date().toISOString(),
+        username: profile.user.username,
+        error: error instanceof Error ? error.message : String(error),
+        requestUrl: request.url
+      });
+      
       await writer.close();
     });
 
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('[GitMentor API] Analysis Request Error:', {
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : String(error),
+      requestUrl: request.url
+    });
+    
     return NextResponse.json(
       { error: 'Invalid request format' },
       { status: 400 }
