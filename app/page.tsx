@@ -346,23 +346,23 @@ function ProfileAnalysis() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-16 px-4">
-      <h1 className="text-4xl font-bold text-center mb-2 text-balance">
+    <div className="max-w-4xl mx-auto py-8 sm:py-16 px-4">
+      <h1 className="text-3xl sm:text-4xl font-bold text-center mb-2 text-balance">
         GitMentor
       </h1>
-      <p className="text-gray-600 text-center mb-8 text-balance">
+      <p className="text-gray-600 text-center mb-6 sm:mb-8 text-balance text-sm sm:text-base">
         Get personalized feedback and growth insights for your GitHub profile
       </p>
       
       <div className="card">
         <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto">
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex flex-col gap-2">
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value.trim())}
               placeholder="Enter GitHub username"
-              className="flex-1 px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
               required
               autoCapitalize="none"
               autoComplete="off"
@@ -372,7 +372,7 @@ function ProfileAnalysis() {
             <button
               type="submit"
               disabled={loadingStates.user || loadingStates.repos || loadingStates.analysis.strengths || loadingStates.analysis.areasForImprovement || loadingStates.analysis.recommendations || loadingStates.analysis.technicalAssessment || !username.trim()}
-              className={`px-6 py-2 rounded-md text-white font-medium ${
+              className={`w-full sm:w-auto px-6 py-3 rounded-md text-white font-medium ${
                 loadingStates.user || loadingStates.repos || loadingStates.analysis.strengths || loadingStates.analysis.areasForImprovement || loadingStates.analysis.recommendations || loadingStates.analysis.technicalAssessment || !username.trim()
                   ? 'bg-blue-400 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700'
@@ -414,23 +414,23 @@ function ProfileAnalysis() {
         {userData && (
           <div className="mt-8 space-y-8">
             {/* User Profile Section */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-0">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 <Image
                   src={userData.avatarUrl}
                   alt={userData.username}
-                  width={80}
-                  height={80}
+                  width={64}
+                  height={64}
                   className="rounded-full"
                 />
                 <div>
-                  <h2 className="text-xl font-semibold">{userData.name || userData.username}</h2>
-                  {userData.bio && <p className="text-gray-600">{userData.bio}</p>}
+                  <h2 className="text-lg sm:text-xl font-semibold">{userData.name || userData.username}</h2>
+                  {userData.bio && <p className="text-sm sm:text-base text-gray-600">{userData.bio}</p>}
                 </div>
               </div>
               <button
                 onClick={handleShare}
-                className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-md flex items-center space-x-2"
+                className="w-full sm:w-auto px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-md flex items-center justify-center space-x-2"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
@@ -440,25 +440,25 @@ function ProfileAnalysis() {
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="p-4 bg-gray-50 rounded-md">
-                <div className="text-2xl font-bold">{userData.publicRepos}</div>
-                <div className="text-gray-600">Repositories</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <div className="p-3 sm:p-4 bg-gray-50 rounded-md text-center">
+                <div className="text-xl sm:text-2xl font-bold">{userData.publicRepos}</div>
+                <div className="text-sm sm:text-base text-gray-600">Repositories</div>
               </div>
-              <div className="p-4 bg-gray-50 rounded-md">
-                <div className="text-2xl font-bold">{userData.followers}</div>
-                <div className="text-gray-600">Followers</div>
+              <div className="p-3 sm:p-4 bg-gray-50 rounded-md text-center">
+                <div className="text-xl sm:text-2xl font-bold">{userData.followers}</div>
+                <div className="text-sm sm:text-base text-gray-600">Followers</div>
               </div>
-              <div className="p-4 bg-gray-50 rounded-md">
-                <div className="text-2xl font-bold">{userData.following}</div>
-                <div className="text-gray-600">Following</div>
+              <div className="p-3 sm:p-4 bg-gray-50 rounded-md text-center">
+                <div className="text-xl sm:text-2xl font-bold">{userData.following}</div>
+                <div className="text-sm sm:text-base text-gray-600">Following</div>
               </div>
             </div>
             {/* Analysis Section */}
             <div className="space-y-6">
               {/* Key Strengths Section */}
               {loadingStates.analysis.strengths ? (
-                <div className="p-6 bg-green-50/50 rounded-lg animate-pulse">
+                <div className="p-4 sm:p-6 bg-green-50/50 rounded-lg animate-pulse">
                   <div className="h-6 w-32 bg-green-200 rounded mb-4"></div>
                   <div className="space-y-3">
                     <div className="h-4 w-full bg-green-100 rounded"></div>
@@ -467,9 +467,9 @@ function ProfileAnalysis() {
                   </div>
                 </div>
               ) : analysis.strengths && (
-                <div className="p-6 bg-green-50 rounded-lg animate-fade-in">
-                  <h3 className="text-lg font-semibold mb-4 text-green-800">Key Strengths</h3>
-                  <ul className="space-y-2 text-green-700">
+                <div className="p-4 sm:p-6 bg-green-50 rounded-lg animate-fade-in">
+                  <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 text-green-800">Key Strengths</h3>
+                  <ul className="space-y-2 text-green-700 text-sm sm:text-base">
                     {analysis.strengths?.map((strength, index) => (
                       <li key={index} className="markdown-content">
                         <ReactMarkdown>{strength}</ReactMarkdown>
@@ -481,7 +481,7 @@ function ProfileAnalysis() {
 
               {/* Areas for Improvement Section */}
               {loadingStates.analysis.areasForImprovement ? (
-                <div className="p-6 bg-yellow-50/50 rounded-lg animate-pulse">
+                <div className="p-4 sm:p-6 bg-yellow-50/50 rounded-lg animate-pulse">
                   <div className="h-6 w-48 bg-yellow-200 rounded mb-4"></div>
                   <div className="space-y-3">
                     <div className="h-4 w-full bg-yellow-100 rounded"></div>
@@ -490,9 +490,9 @@ function ProfileAnalysis() {
                   </div>
                 </div>
               ) : analysis.areasForImprovement && (
-                <div className="p-6 bg-yellow-50 rounded-lg animate-fade-in">
-                  <h3 className="text-lg font-semibold mb-4 text-yellow-800">Areas for Improvement</h3>
-                  <ul className="space-y-2 text-yellow-700">
+                <div className="p-4 sm:p-6 bg-yellow-50 rounded-lg animate-fade-in">
+                  <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 text-yellow-800">Areas for Improvement</h3>
+                  <ul className="space-y-2 text-yellow-700 text-sm sm:text-base">
                     {analysis.areasForImprovement?.map((area, index) => (
                       <li key={index} className="markdown-content">
                         <ReactMarkdown>{area}</ReactMarkdown>
@@ -504,7 +504,7 @@ function ProfileAnalysis() {
 
               {/* Recommendations Section */}
               {loadingStates.analysis.recommendations ? (
-                <div className="p-6 bg-blue-50/50 rounded-lg animate-pulse">
+                <div className="p-4 sm:p-6 bg-blue-50/50 rounded-lg animate-pulse">
                   <div className="h-6 w-40 bg-blue-200 rounded mb-4"></div>
                   <div className="space-y-3">
                     <div className="h-4 w-full bg-blue-100 rounded"></div>
@@ -513,9 +513,9 @@ function ProfileAnalysis() {
                   </div>
                 </div>
               ) : analysis.recommendations && (
-                <div className="p-6 bg-blue-50 rounded-lg animate-fade-in">
-                  <h3 className="text-lg font-semibold mb-4 text-blue-800">Recommendations</h3>
-                  <ul className="space-y-2 text-blue-700">
+                <div className="p-4 sm:p-6 bg-blue-50 rounded-lg animate-fade-in">
+                  <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 text-blue-800">Recommendations</h3>
+                  <ul className="space-y-2 text-blue-700 text-sm sm:text-base">
                     {analysis.recommendations?.map((recommendation, index) => (
                       <li key={index} className="markdown-content">
                         <ReactMarkdown>{recommendation}</ReactMarkdown>
@@ -527,7 +527,7 @@ function ProfileAnalysis() {
 
               {/* Technical Assessment Section */}
               {loadingStates.analysis.technicalAssessment ? (
-                <div className="p-6 bg-gray-50/50 rounded-lg animate-pulse">
+                <div className="p-4 sm:p-6 bg-gray-50/50 rounded-lg animate-pulse">
                   <div className="h-6 w-44 bg-gray-200 rounded mb-4"></div>
                   <div className="space-y-3">
                     <div className="h-4 w-full bg-gray-100 rounded"></div>
@@ -536,8 +536,8 @@ function ProfileAnalysis() {
                   </div>
                 </div>
               ) : analysis.technicalAssessment && (
-                <div className="p-6 bg-gray-50 rounded-lg animate-fade-in">
-                  <h3 className="text-lg font-semibold mb-4">Technical Assessment</h3>
+                <div className="p-4 sm:p-6 bg-gray-50 rounded-lg animate-fade-in">
+                  <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Technical Assessment</h3>
                   <div className="text-gray-700 markdown-content">
                     <ReactMarkdown>{analysis.technicalAssessment}</ReactMarkdown>
                   </div>
