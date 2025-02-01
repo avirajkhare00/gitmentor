@@ -302,6 +302,36 @@ export default function Home() {
 
           {userData && (
             <div className="mt-8 space-y-8">
+              {/* User Profile Section */}
+              <div className="flex items-center space-x-4">
+                <Image
+                  src={userData.avatarUrl}
+                  alt={userData.username}
+                  width={80}
+                  height={80}
+                  className="rounded-full"
+                />
+                <div>
+                  <h2 className="text-xl font-semibold">{userData.name || userData.username}</h2>
+                  {userData.bio && <p className="text-gray-600">{userData.bio}</p>}
+                </div>
+              </div>
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="p-4 bg-gray-50 rounded-md">
+                  <div className="text-2xl font-bold">{userData.publicRepos}</div>
+                  <div className="text-gray-600">Repositories</div>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-md">
+                  <div className="text-2xl font-bold">{userData.followers}</div>
+                  <div className="text-gray-600">Followers</div>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-md">
+                  <div className="text-2xl font-bold">{userData.following}</div>
+                  <div className="text-gray-600">Following</div>
+                </div>
+              </div>
               {/* Analysis Section */}
               {loadingStates.analysis ? (
                 <div className="card">
@@ -351,37 +381,6 @@ export default function Home() {
                   </div>
                 </div>
               )}
-
-              {/* User Profile Section */}
-              <div className="flex items-center space-x-4">
-                <Image
-                  src={userData.avatarUrl}
-                  alt={userData.username}
-                  width={80}
-                  height={80}
-                  className="rounded-full"
-                />
-                <div>
-                  <h2 className="text-xl font-semibold">{userData.name || userData.username}</h2>
-                  {userData.bio && <p className="text-gray-600">{userData.bio}</p>}
-                </div>
-              </div>
-
-              {/* Stats Grid */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="p-4 bg-gray-50 rounded-md">
-                  <div className="text-2xl font-bold">{userData.publicRepos}</div>
-                  <div className="text-gray-600">Repositories</div>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-md">
-                  <div className="text-2xl font-bold">{userData.followers}</div>
-                  <div className="text-gray-600">Followers</div>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-md">
-                  <div className="text-2xl font-bold">{userData.following}</div>
-                  <div className="text-gray-600">Following</div>
-                </div>
-              </div>
 
               {/* Repositories Section */}
               {loadingStates.repos ? (
