@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { DeveloperProfile, GithubUserData, Repository } from "./services/github";
 import { DeveloperAnalysis } from "./services/openai";
+import ReactMarkdown from 'react-markdown';
 
 interface AnalysisResponse {
   profile: DeveloperProfile;
@@ -20,6 +21,14 @@ export default function Home() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate username format
+    const usernamePattern = /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/;
+    if (!usernamePattern.test(username)) {
+      setError('Please enter a valid GitHub username');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setData(null);
@@ -136,32 +145,43 @@ export default function Home() {
         </p>
         
         <div className="card">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="github" className="block text-sm font-medium text-gray-700 mb-1">
-                GitHub Username
-              </label>
+          <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
-                id="github"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="input-field"
-                placeholder="e.g. johndoe"
-                pattern="^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$"
+                onChange={(e) => setUsername(e.target.value.trim())}
+                placeholder="Enter GitHub username"
+                className="flex-1 px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                pattern="[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}"
                 title="Please enter a valid GitHub username"
                 required
+                autoCapitalize="none"
+                autoComplete="off"
+                spellCheck="false"
               />
-              <p className="mt-1 text-sm text-gray-500">Enter your GitHub username without @ symbol</p>
+              <button
+                type="submit"
+                disabled={loading || !username.trim()}
+                className={`px-6 py-2 rounded-md text-white font-medium ${
+                  loading || !username.trim()
+                    ? 'bg-blue-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                {loading ? (
+                  <span className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Analyzing...
+                  </span>
+                ) : (
+                  'Analyze'
+                )}
+              </button>
             </div>
-            
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Analyzing Profile...' : 'Analyze Profile'}
-            </button>
           </form>
 
           {renderError()}
@@ -241,34 +261,42 @@ export default function Home() {
               <div className="space-y-6">
                 <div className="p-6 bg-green-50 rounded-lg">
                   <h3 className="text-lg font-semibold mb-4 text-green-800">Key Strengths</h3>
-                  <ul className="list-disc list-inside space-y-2 text-green-700">
+                  <ul className="space-y-2 text-green-700">
                     {data.analysis.strengths.map((strength, index) => (
-                      <li key={index}>{strength}</li>
+                      <li key={index} className="markdown-content">
+                        <ReactMarkdown>{strength}</ReactMarkdown>
+                      </li>
                     ))}
                   </ul>
                 </div>
 
                 <div className="p-6 bg-yellow-50 rounded-lg">
                   <h3 className="text-lg font-semibold mb-4 text-yellow-800">Areas for Improvement</h3>
-                  <ul className="list-disc list-inside space-y-2 text-yellow-700">
+                  <ul className="space-y-2 text-yellow-700">
                     {data.analysis.areasForImprovement.map((area, index) => (
-                      <li key={index}>{area}</li>
+                      <li key={index} className="markdown-content">
+                        <ReactMarkdown>{area}</ReactMarkdown>
+                      </li>
                     ))}
                   </ul>
                 </div>
 
                 <div className="p-6 bg-blue-50 rounded-lg">
                   <h3 className="text-lg font-semibold mb-4 text-blue-800">Recommendations</h3>
-                  <ul className="list-disc list-inside space-y-2 text-blue-700">
+                  <ul className="space-y-2 text-blue-700">
                     {data.analysis.recommendations.map((recommendation, index) => (
-                      <li key={index}>{recommendation}</li>
+                      <li key={index} className="markdown-content">
+                        <ReactMarkdown>{recommendation}</ReactMarkdown>
+                      </li>
                     ))}
                   </ul>
                 </div>
 
                 <div className="p-6 bg-gray-50 rounded-lg">
                   <h3 className="text-lg font-semibold mb-4">Technical Assessment</h3>
-                  <p className="text-gray-700 whitespace-pre-wrap">{data.analysis.technicalAssessment}</p>
+                  <div className="text-gray-700 markdown-content">
+                    <ReactMarkdown>{data.analysis.technicalAssessment}</ReactMarkdown>
+                  </div>
                 </div>
               </div>
 

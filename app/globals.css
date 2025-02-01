@@ -58,6 +58,59 @@ a {
   .card {
     @apply bg-white p-6 rounded-lg shadow-lg;
   }
+
+  /* Markdown Content Styles */
+  .markdown-content {
+    @apply text-base leading-relaxed;
+  }
+
+  .markdown-content p {
+    @apply mb-4;
+  }
+
+  .markdown-content strong {
+    @apply font-semibold;
+  }
+
+  .markdown-content a {
+    @apply text-blue-600 hover:text-blue-800 underline;
+  }
+
+  .markdown-content ul {
+    @apply list-disc list-inside mb-4;
+  }
+
+  .markdown-content ol {
+    @apply list-decimal list-inside mb-4;
+  }
+
+  .markdown-content li {
+    @apply mb-2;
+  }
+
+  .markdown-content code {
+    @apply px-1 py-0.5 bg-gray-100 rounded text-sm font-mono;
+  }
+
+  .markdown-content pre {
+    @apply p-4 bg-gray-100 rounded-lg overflow-x-auto mb-4;
+  }
+
+  .markdown-content blockquote {
+    @apply pl-4 border-l-4 border-gray-200 italic my-4;
+  }
+
+  .markdown-content h1 {
+    @apply text-2xl font-bold mb-4;
+  }
+
+  .markdown-content h2 {
+    @apply text-xl font-bold mb-3;
+  }
+
+  .markdown-content h3 {
+    @apply text-lg font-bold mb-2;
+  }
 }
 
 @layer utilities {
