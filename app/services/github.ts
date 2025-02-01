@@ -23,6 +23,12 @@ export interface Repository {
   isArchived: boolean | undefined;
   isFork: boolean;
   readme: string | null;
+  parentRepository?: {
+    fullName: string;
+    url: string;
+  };
+  hasContributions?: boolean;
+  contributionsCount?: number;
 }
 
 export interface DeveloperProfile {
@@ -139,25 +145,72 @@ export class GithubService {
     };
   }
 
+  private async checkForkContributions(username: string, repo: string, owner: string): Promise<{ hasContributions: boolean; count: number }> {
+    try {
+      // Get all commits by the user in this repository
+      const { data: commits } = await this.octokit.rest.repos.listCommits({
+        owner,
+        repo,
+        author: username,
+        per_page: 100 // Limit to 100 commits for performance
+      });
+
+      return {
+        hasContributions: commits.length > 0,
+        count: commits.length
+      };
+    } catch (error: any) {
+      await this.handleRateLimitError(error);
+      return { hasContributions: false, count: 0 };
+    }
+  }
+
   async getUserRepositories(username: string): Promise<Repository[]> {
     try {
+      // First, get all repositories including forks
       const { data } = await this.octokit.rest.repos.listForUser({
         username,
         sort: 'updated',
         direction: 'desc',
         per_page: 100,
-        type: 'owner'
+        type: 'all' // Changed from 'owner' to 'all' to include forks
       });
       
+      // Filter out archived repositories but keep forks
       const filteredRepos = data
-        .filter(repo => !repo.fork && !repo.archived)
+        .filter(repo => !repo.archived)
         .sort((a, b) => (b.stargazers_count || 0) - (a.stargazers_count || 0))
-        .slice(0, 10);
+        .slice(0, 15); // Increased limit to include some forks
 
-      // Fetch languages for each repository in parallel, skip README to reduce API calls
+      // Fetch languages and contribution data for each repository in parallel
       const reposWithDetails = await Promise.all(
         filteredRepos.map(async repo => {
-          const languages = await this.getRepositoryLanguages(username, repo.name);
+          const languages = await this.getRepositoryLanguages(repo.owner.login, repo.name);
+          
+          let contributionData = { hasContributions: false, count: 0 };
+          let parentRepo = undefined;
+          
+          if (repo.fork) {
+            // For forks, get the parent repository info
+            const { data: repoData } = await this.octokit.rest.repos.get({
+              owner: repo.owner.login,
+              repo: repo.name
+            });
+            
+            if (repoData.parent) {
+              parentRepo = {
+                fullName: repoData.parent.full_name,
+                url: repoData.parent.html_url
+              };
+              
+              // Check for contributions in the fork
+              contributionData = await this.checkForkContributions(
+                username,
+                repo.name,
+                repo.owner.login
+              );
+            }
+          }
 
           return {
             name: repo.name,
@@ -171,11 +224,23 @@ export class GithubService {
             isArchived: repo.archived,
             isFork: repo.fork,
             readme: null, // Skip README fetching to reduce API calls
+            parentRepository: parentRepo,
+            hasContributions: contributionData.hasContributions,
+            contributionsCount: contributionData.count
           };
         })
       );
 
-      return reposWithDetails;
+      // Sort repositories: owned repos first, then forks with contributions
+      return reposWithDetails.sort((a, b) => {
+        if (a.isFork === b.isFork) {
+          // If both are forks or both are not forks, sort by stars
+          return (b.stargazersCount || 0) - (a.stargazersCount || 0);
+        }
+        // Put non-forks first
+        return a.isFork ? 1 : -1;
+      });
+
     } catch (error: any) {
       await this.handleRateLimitError(error);
       throw new Error(`Failed to fetch user repositories: ${error.message}`);

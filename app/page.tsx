@@ -449,17 +449,41 @@ function ProfileAnalysis() {
                 <div className="space-y-4">
                   {reposData.map((repo) => (
                     <div key={repo.name} className="p-4 border rounded-md">
-                      <h4 className="font-medium">{repo.name}</h4>
-                      {repo.description && (
-                        <p className="text-gray-600 text-sm mt-1">{repo.description}</p>
-                      )}
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-medium">{repo.name}</h4>
+                          {repo.description && (
+                            <p className="text-gray-600 text-sm mt-1">{repo.description}</p>
+                          )}
+                        </div>
+                        {repo.isFork && repo.parentRepository && (
+                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                            Forked from{' '}
+                            <a 
+                              href={repo.parentRepository.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline"
+                            >
+                              {repo.parentRepository.fullName}
+                            </a>
+                          </span>
+                        )}
+                      </div>
+                      
                       <div className="mt-2 flex flex-wrap gap-2 text-sm text-gray-500">
                         {repo.language && (
                           <span className="px-2 py-1 bg-gray-100 rounded-md">{repo.language}</span>
                         )}
                         <span className="px-2 py-1 bg-gray-100 rounded-md">⭐ {repo.stargazersCount}</span>
                         <span className="px-2 py-1 bg-gray-100 rounded-md">🍴 {repo.forksCount}</span>
+                        {repo.isFork && repo.hasContributions && (
+                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded-md">
+                            {repo.contributionsCount} contribution{repo.contributionsCount !== 1 ? 's' : ''}
+                          </span>
+                        )}
                       </div>
+                      
                       {repo.topics.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-2">
                           {repo.topics.map((topic) => (
