@@ -302,6 +302,56 @@ export default function Home() {
 
           {userData && (
             <div className="mt-8 space-y-8">
+              {/* Analysis Section */}
+              {loadingStates.analysis ? (
+                <div className="card">
+                  <h3 className="text-lg font-semibold mb-4">Analyzing Profile...</h3>
+                  {renderLoadingState('analysis')}
+                </div>
+              ) : analysisData && (
+                <div className="space-y-6">
+                  <div className="p-6 bg-green-50 rounded-lg">
+                    <h3 className="text-lg font-semibold mb-4 text-green-800">Key Strengths</h3>
+                    <ul className="space-y-2 text-green-700">
+                      {analysisData.strengths.map((strength, index) => (
+                        <li key={index} className="markdown-content">
+                          <ReactMarkdown>{strength}</ReactMarkdown>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="p-6 bg-yellow-50 rounded-lg">
+                    <h3 className="text-lg font-semibold mb-4 text-yellow-800">Areas for Improvement</h3>
+                    <ul className="space-y-2 text-yellow-700">
+                      {analysisData.areasForImprovement.map((area, index) => (
+                        <li key={index} className="markdown-content">
+                          <ReactMarkdown>{area}</ReactMarkdown>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="p-6 bg-blue-50 rounded-lg">
+                    <h3 className="text-lg font-semibold mb-4 text-blue-800">Recommendations</h3>
+                    <ul className="space-y-2 text-blue-700">
+                      {analysisData.recommendations.map((recommendation, index) => (
+                        <li key={index} className="markdown-content">
+                          <ReactMarkdown>{recommendation}</ReactMarkdown>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="p-6 bg-gray-50 rounded-lg">
+                    <h3 className="text-lg font-semibold mb-4">Technical Assessment</h3>
+                    <div className="text-gray-700 markdown-content">
+                      <ReactMarkdown>{analysisData.technicalAssessment}</ReactMarkdown>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* User Profile Section */}
               <div className="flex items-center space-x-4">
                 <Image
@@ -367,56 +417,6 @@ export default function Home() {
                         )}
                       </div>
                     ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Analysis Section */}
-              {loadingStates.analysis ? (
-                <div className="card">
-                  <h3 className="text-lg font-semibold mb-4">Analyzing Profile...</h3>
-                  {renderLoadingState('analysis')}
-                </div>
-              ) : analysisData && (
-                <div className="space-y-6">
-                  <div className="p-6 bg-green-50 rounded-lg">
-                    <h3 className="text-lg font-semibold mb-4 text-green-800">Key Strengths</h3>
-                    <ul className="space-y-2 text-green-700">
-                      {analysisData.strengths.map((strength, index) => (
-                        <li key={index} className="markdown-content">
-                          <ReactMarkdown>{strength}</ReactMarkdown>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="p-6 bg-yellow-50 rounded-lg">
-                    <h3 className="text-lg font-semibold mb-4 text-yellow-800">Areas for Improvement</h3>
-                    <ul className="space-y-2 text-yellow-700">
-                      {analysisData.areasForImprovement.map((area, index) => (
-                        <li key={index} className="markdown-content">
-                          <ReactMarkdown>{area}</ReactMarkdown>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="p-6 bg-blue-50 rounded-lg">
-                    <h3 className="text-lg font-semibold mb-4 text-blue-800">Recommendations</h3>
-                    <ul className="space-y-2 text-blue-700">
-                      {analysisData.recommendations.map((recommendation, index) => (
-                        <li key={index} className="markdown-content">
-                          <ReactMarkdown>{recommendation}</ReactMarkdown>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="p-6 bg-gray-50 rounded-lg">
-                    <h3 className="text-lg font-semibold mb-4">Technical Assessment</h3>
-                    <div className="text-gray-700 markdown-content">
-                      <ReactMarkdown>{analysisData.technicalAssessment}</ReactMarkdown>
-                    </div>
                   </div>
                 </div>
               )}
