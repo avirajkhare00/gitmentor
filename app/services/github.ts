@@ -145,13 +145,14 @@ export class GithubService {
         username,
         sort: 'updated',
         direction: 'desc',
-        per_page: 30,
+        per_page: 100,
         type: 'owner'
       });
       
       const filteredRepos = data
         .filter(repo => !repo.fork && !repo.archived)
-        .slice(0, 5);
+        .sort((a, b) => (b.stargazers_count || 0) - (a.stargazers_count || 0))
+        .slice(0, 10);
 
       // Fetch languages for each repository in parallel, skip README to reduce API calls
       const reposWithDetails = await Promise.all(
