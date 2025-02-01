@@ -50,7 +50,8 @@ export async function POST(request: Request) {
           });
         }
 
-        const data = encoder.encode(JSON.stringify(update) + '\n');
+        // Format data as SSE
+        const data = encoder.encode(`data: ${JSON.stringify(update)}\n\n`);
         await writer.write(data);
       } catch (error: unknown) {
         console.error('[GitMentor API] Analysis Stream Error:', {
