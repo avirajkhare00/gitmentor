@@ -98,23 +98,69 @@ Focus on actionable insights based on available data.`;
       const recommendations: string[] = [];
       let technicalAssessment = '';
 
+      let currentSection = '';
       sections.forEach(section => {
-        if (section.toLowerCase().includes('strength')) {
-          strengths.push(...section.split('\n').slice(1).filter(s => s.trim()));
-        } else if (section.toLowerCase().includes('improvement')) {
-          areasForImprovement.push(...section.split('\n').slice(1).filter(s => s.trim()));
-        } else if (section.toLowerCase().includes('recommendation')) {
-          recommendations.push(...section.split('\n').slice(1).filter(s => s.trim()));
-        } else if (section.toLowerCase().includes('technical assessment')) {
-          technicalAssessment = section.split('\n').slice(1).join('\n').trim();
+        const lowerSection = section.toLowerCase();
+        if (lowerSection.includes('strength') || lowerSection.startsWith('1.')) {
+          currentSection = 'strengths';
+          const lines = section.split('\n')
+            .filter(line => line.trim() && !line.toLowerCase().includes('strength'))
+            .map(line => line.replace(/^\d+\.\s*|-\s*/, '').trim())
+            .filter(line => line);
+          strengths.push(...lines);
+        } else if (lowerSection.includes('improvement') || lowerSection.startsWith('2.')) {
+          currentSection = 'improvements';
+          const lines = section.split('\n')
+            .filter(line => line.trim() && !line.toLowerCase().includes('improvement'))
+            .map(line => line.replace(/^\d+\.\s*|-\s*/, '').trim())
+            .filter(line => line);
+          areasForImprovement.push(...lines);
+        } else if (lowerSection.includes('recommendation') || lowerSection.startsWith('3.')) {
+          currentSection = 'recommendations';
+          const lines = section.split('\n')
+            .filter(line => line.trim() && !line.toLowerCase().includes('recommendation'))
+            .map(line => line.replace(/^\d+\.\s*|-\s*/, '').trim())
+            .filter(line => line);
+          recommendations.push(...lines);
+        } else if (lowerSection.includes('technical assessment') || lowerSection.startsWith('4.')) {
+          currentSection = 'assessment';
+          const lines = section.split('\n')
+            .filter(line => line.trim() && !line.toLowerCase().includes('technical assessment'))
+            .join('\n')
+            .trim();
+          if (lines) {
+            technicalAssessment = lines;
+          }
+        } else if (section.trim()) {
+          // If we're in a section but the text doesn't start with a new section header,
+          // append it to the current section
+          const lines = section.split('\n')
+            .map(line => line.replace(/^\d+\.\s*|-\s*/, '').trim())
+            .filter(line => line);
+          
+          switch (currentSection) {
+            case 'strengths':
+              strengths.push(...lines);
+              break;
+            case 'improvements':
+              areasForImprovement.push(...lines);
+              break;
+            case 'recommendations':
+              recommendations.push(...lines);
+              break;
+            case 'assessment':
+              technicalAssessment += '\n' + lines.join('\n');
+              break;
+          }
         }
       });
 
+      // Ensure we have at least empty arrays/strings for each field
       return {
-        strengths,
-        areasForImprovement,
-        recommendations,
-        technicalAssessment,
+        strengths: strengths.length > 0 ? strengths : ['No strengths identified'],
+        areasForImprovement: areasForImprovement.length > 0 ? areasForImprovement : ['No areas for improvement identified'],
+        recommendations: recommendations.length > 0 ? recommendations : ['No specific recommendations available'],
+        technicalAssessment: technicalAssessment || 'No technical assessment available',
       };
     } catch (error: any) {
       throw new Error(`Failed to analyze developer profile`);
