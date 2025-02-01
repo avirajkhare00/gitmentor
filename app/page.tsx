@@ -507,7 +507,7 @@ function ProfileAnalysis() {
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background flex flex-col">
       <Toaster />
       <Suspense fallback={
         <div className="max-w-4xl mx-auto py-16 px-4">
@@ -521,6 +521,17 @@ export default function Home() {
       }>
         <ProfileAnalysis />
       </Suspense>
+      <footer className="mt-auto py-8 text-center text-sm text-gray-500">
+        Crafted with ❤️ by{' '}
+        <a 
+          href="https://x.com/avirajkhare00" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:underline"
+        >
+          @avirajkhare00
+        </a>
+      </footer>
     </main>
   );
 }
