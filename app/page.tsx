@@ -15,6 +15,78 @@ interface AnalysisResponse {
   analysis: DeveloperAnalysis;
 }
 
+function EmailAnalysisButton({ analysis, profile }: { analysis: Partial<DeveloperAnalysis>, profile: DeveloperProfile | null }) {
+  const [email, setEmail] = useState("");
+  const [isSending, setIsSending] = useState(false);
+
+  const sendAnalysis = async () => {
+    if (!email) {
+      toast.error("Please enter your email address");
+      return;
+    }
+
+    if (!analysis || !profile) {
+      toast.error("Analysis data is not ready");
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const response = await fetch('/api/send-analysis', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          analysis,
+          profile,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send analysis');
+      }
+
+      toast.success("Analysis sent to your email!");
+      setEmail("");
+    } catch (error) {
+      console.error('Error sending analysis:', error);
+      toast.error("Failed to send analysis. Please try again.");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return (
+    <div className="mt-8 p-6 bg-white rounded-lg shadow-md">
+      <h3 className="text-xl font-semibold mb-4">Get Your Analysis Report</h3>
+      <p className="text-gray-600 mb-4">
+        Enter your email address to receive a detailed analysis of your GitHub profile.
+      </p>
+      <div className="flex flex-col space-y-4">
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Enter your email"
+          className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={isSending}
+        />
+        <button
+          onClick={sendAnalysis}
+          disabled={isSending}
+          className={`px-6 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+            isSending ? 'opacity-75 cursor-not-allowed' : ''
+          }`}
+        >
+          {isSending ? 'Sending...' : 'Send Analysis'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ProfileAnalysis() {
   const { trackEvent } = useAnalytics();
   const searchParams = useSearchParams();
@@ -165,7 +237,7 @@ function ProfileAnalysis() {
     }));
 
     try {
-      const response = await fetch('/api/analysis/analyze', {
+      const response = await fetch('/api/analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ profile })
@@ -175,62 +247,34 @@ function ProfileAnalysis() {
         throw new Error('Failed to start analysis');
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('Failed to create stream reader');
-      }
-
-      // Read the stream
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        // Convert the chunk to text
-        const chunk = new TextDecoder().decode(value);
-        const lines = chunk.split('\n');
-
-        // Process each line
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-
-              if (data.error) {
-                throw new Error(data.error);
-              }
-
-              if (data.complete) {
-                // Final update with complete analysis
-                setAnalysis(data.analysis);
-                setLoadingStates(prev => ({
-                  ...prev,
-                  analysis: {
-                    strengths: false,
-                    areasForImprovement: false,
-                    recommendations: false,
-                    technicalAssessment: false
-                  }
-                }));
-              } else {
-                // Incremental update
-                setAnalysis(prev => ({
-                  ...prev,
-                  [data.section]: data.data
-                }));
-                setLoadingStates(prev => ({
-                  ...prev,
-                  analysis: {
-                    ...prev.analysis,
-                    [data.section]: false
-                  }
-                }));
-              }
-            } catch (error) {
-              console.error('Error parsing stream data:', error);
-            }
-          }
+      const data = await response.json();
+      
+      // Reset loading states for analysis
+      setLoadingStates(prev => ({
+        ...prev,
+        analysis: {
+          strengths: false,
+          areasForImprovement: false,
+          recommendations: false,
+          technicalAssessment: false
         }
-      }
+      }));
+
+      // Make sure we have the correct structure for the analysis data
+      const analysisData = {
+        strengths: data.analysis?.strengths || [],
+        areasForImprovement: data.analysis?.areasForImprovement || [],
+        recommendations: data.analysis?.recommendations || [],
+        technicalAssessment: data.analysis?.technicalAssessment || ''
+      };
+      
+      setAnalysis(analysisData);
+
+      // Store analysis and profile data in localStorage
+      localStorage.setItem('analysisData', JSON.stringify(analysisData));
+      localStorage.setItem('profileData', JSON.stringify(profile));
+
+      return analysisData;
     } catch (error: any) {
       console.error('Error during analysis:', error);
       toast.error(error.message || 'Failed to analyze profile');
@@ -345,6 +389,106 @@ function ProfileAnalysis() {
     );
   };
 
+  const PaymentSection = () => {
+    const [loading, setLoading] = useState(false);
+    const [email, setEmail] = useState('');
+    const [sendInsights, setSendInsights] = useState(false);
+    const { trackEvent } = useAnalytics();
+
+    const handlePayment = async () => {
+      try {
+        if (sendInsights && !email) {
+          toast.error('Please enter your email to receive insights');
+          return;
+        }
+
+        trackEvent({
+          action: 'payment_initiated',
+          category: 'payment'
+        });
+        setLoading(true);
+        const response = await fetch('/api/create-payment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: sendInsights ? email : null,
+            sendInsights,
+          }),
+        });
+        
+        const { sessionId } = await response.json();
+        // Removed Stripe import
+        
+        if (sessionId) {
+          // Removed Stripe redirect
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        toast.error('Something went wrong. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    return (
+      <div className="flex justify-center w-full">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 mt-8">
+          <h2 className="text-2xl font-bold text-center mb-6">Mail me as PDF</h2>
+          
+          <div className="bg-gray-50 rounded-lg p-6 mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-gray-600">Email Report</span>
+              <span className="font-semibold">$2.00</span>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">
+              Get comprehensive insights about your developer profile delivered to your inbox.
+            </p>
+
+            <div className="space-y-4">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="sendInsights"
+                  checked={sendInsights}
+                  onChange={(e) => setSendInsights(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                />
+                <label htmlFor="sendInsights" className="ml-2 text-sm text-gray-600">
+                  Send insights to my email
+                </label>
+              </div>
+
+              {sendInsights && (
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              )}
+            </div>
+          </div>
+
+          <button
+            onClick={handlePayment}
+            disabled={loading}
+            className={`w-full py-3 px-4 rounded-lg text-white font-medium ${
+              loading
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700'
+            } transition-colors`}
+          >
+            {loading ? 'Processing...' : 'Get Insights for $2.00'}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="max-w-4xl mx-auto py-8 sm:py-16 px-4">
       <h1 className="text-3xl sm:text-4xl font-bold text-center mb-2 text-balance">
@@ -380,7 +524,7 @@ function ProfileAnalysis() {
             >
               {loadingStates.user || loadingStates.repos || loadingStates.analysis.strengths || loadingStates.analysis.areasForImprovement || loadingStates.analysis.recommendations || loadingStates.analysis.technicalAssessment ? (
                 <span className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
@@ -543,6 +687,22 @@ function ProfileAnalysis() {
                   </div>
                 </div>
               )}
+              {/* Payment Section */}
+              {(analysis.strengths || analysis.areasForImprovement || analysis.recommendations || analysis.technicalAssessment) &&
+                <EmailAnalysisButton 
+                  analysis={analysis} 
+                  profile={userData && reposData ? {
+                    user: userData,
+                    repositories: reposData,
+                    languageStats: reposData.reduce((stats, repo) => {
+                      Object.entries(repo.languages).forEach(([lang, bytes]) => {
+                        stats[lang] = (stats[lang] || 0) + bytes;
+                      });
+                      return stats;
+                    }, {} as { [key: string]: number })
+                  } : null} 
+                />
+              }
             </div>
 
             {/* Repositories Section */}
@@ -615,31 +775,16 @@ function ProfileAnalysis() {
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-background flex flex-col">
-      <Toaster />
-      <Suspense fallback={
-        <div className="max-w-4xl mx-auto py-16 px-4">
-          <h1 className="text-4xl font-bold text-center mb-2 text-balance">
-            GitMentor
-          </h1>
-          <p className="text-gray-600 text-center mb-8 text-balance">
-            Loading...
-          </p>
+    <main className="flex min-h-screen flex-col items-center p-12">
+      <div className="max-w-5xl w-full">
+        <div className="flex flex-col items-center justify-center w-full">
+          <Suspense fallback={<div>Loading...</div>}>
+            <ProfileAnalysis />
+          </Suspense>
         </div>
-      }>
-        <ProfileAnalysis />
-      </Suspense>
-      <footer className="mt-auto py-8 text-center text-sm text-gray-500">
-        Crafted with ❤️ by{' '}
-        <a 
-          href="https://x.com/avirajkhare00" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-blue-600 hover:underline"
-        >
-          @avirajkhare00
-        </a>
-      </footer>
+      </div>
+
+      <Toaster position="bottom-right" />
     </main>
   );
 }
