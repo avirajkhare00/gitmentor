@@ -6,13 +6,17 @@ export interface DeveloperAnalysis {
   areasForImprovement: string[];
   recommendations: string[];
   technicalAssessment: string;
+  profileRating: {
+    score: number;
+    explanation: string;
+  };
 }
 
 export type AnalysisSection = keyof DeveloperAnalysis;
 
 export interface AnalysisUpdate {
   section: AnalysisSection;
-  data: string[] | string;
+  data: string[] | string | { score: number; explanation: string };
 }
 
 export type AnalysisCallback = (update: AnalysisUpdate) => void;
@@ -55,6 +59,72 @@ ${repo.isFork ? `Forked: Yes${repo.hasContributions ? `, Contributions: ${repo.c
       .join('\n---\n');
 
     return { languagePercentages, repoSummaries };
+  }
+
+  private async getProfileRating(profile: DeveloperProfile, languagePercentages: string, repoSummaries: string): Promise<{ score: number; explanation: string }> {
+    const prompt = `As a technical evaluator, analyze this GitHub profile and provide a rating out of 10:
+
+User: ${profile.user.name || profile.user.username}
+Bio: ${profile.user.bio || 'No bio'}
+Public Repos: ${profile.user.publicRepos}
+Followers: ${profile.user.followers}
+Following: ${profile.user.following}
+Account Created: ${profile.user.createdAt}
+
+Overall Language Distribution:
+${languagePercentages}
+
+Top Repositories:
+${repoSummaries}
+
+Provide a rating out of 10 for this developer's GitHub profile, considering:
+1. Code quality and project diversity
+2. Technical expertise and language proficiency
+3. Contribution frequency and consistency
+4. Project impact (stars, forks, etc.)
+5. Documentation and code organization
+
+Format your response as:
+Rating: [X]/10
+Explanation: [Brief explanation of the rating]`;
+
+    const response = await this.openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are an experienced technical evaluator who provides fair and objective ratings of developer profiles. Be specific and evidence-based in your assessment."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.7,
+    });
+
+    const content = response.choices[0].message?.content;
+    if (!content) throw new Error('Failed to get profile rating');
+
+    const ratingMatch = content.match(/Rating:\s*(\d+(?:\.\d+)?)/);
+    
+    if (!ratingMatch) {
+      throw new Error('Failed to parse rating response');
+    }
+
+    // Convert the matched rating to a number and divide by 10 if needed
+    const rating = parseFloat(ratingMatch[1]);
+
+    const explanationMatch = content.match(/Explanation:\s*(.*)/);
+
+    if (!explanationMatch) {
+      throw new Error('Failed to parse explanation response');
+    }
+
+    return {
+      score: rating,
+      explanation: explanationMatch[1].trim(),
+    };
   }
 
   private async getStrengths(profile: DeveloperProfile, languagePercentages: string, repoSummaries: string): Promise<string[]> {
@@ -234,7 +304,11 @@ Keep the assessment concise but informative.`;
           strengths: ['I created git bro'],
           areasForImprovement: ['I created git bro'],
           recommendations: ['I created git bro'],
-          technicalAssessment: 'I created git bro'
+          technicalAssessment: 'I created git bro',
+          profileRating: {
+            score: 10,
+            explanation: 'I created git bro'
+          }
         };
         
         // Notify callback for each section if provided
@@ -254,13 +328,19 @@ Keep the assessment concise but informative.`;
         strengths: [],
         areasForImprovement: [],
         recommendations: [],
-        technicalAssessment: ''
+        technicalAssessment: '',
+        profileRating: {
+          score: 0,
+          explanation: ''
+        }
       };
 
       // Helper function to update a section and notify callback
-      const updateSection = (section: AnalysisSection, data: string[] | string) => {
+      const updateSection = (section: AnalysisSection, data: string[] | string | { score: number; explanation: string }) => {
         if (section === 'technicalAssessment') {
           (analysis[section] as string) = data as string;
+        } else if (section === 'profileRating') {
+          analysis[section] = data as { score: number; explanation: string };
         } else {
           (analysis[section] as string[]) = data as string[];
         }
@@ -295,6 +375,13 @@ Keep the assessment concise but informative.`;
           .catch(error => {
             console.error('Error getting technical assessment:', error);
             updateSection('technicalAssessment', 'Failed to get technical assessment');
+          }),
+
+        this.getProfileRating(profile, languagePercentages, repoSummaries)
+          .then(data => updateSection('profileRating', data))
+          .catch(error => {
+            console.error('Error getting profile rating:', error);
+            updateSection('profileRating', { score: 0, explanation: 'Failed to get profile rating' });
           })
       ];
 

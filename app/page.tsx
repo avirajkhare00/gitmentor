@@ -572,6 +572,18 @@ function ProfileAnalysis() {
                   {userData.bio && <p className="text-sm sm:text-base text-gray-600">{userData.bio}</p>}
                 </div>
               </div>
+              {analysis?.profileRating && (
+                <div className="mt-6 p-6 bg-white rounded-lg shadow-sm border border-gray-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Profile Rating</h3>
+                    <div className="flex items-center">
+                      <span className="text-2xl font-bold text-blue-600">{analysis.profileRating.score.toFixed(1)}</span>
+                      <span className="text-gray-500 ml-1">/10</span>
+                    </div>
+                  </div>
+                  <p className="text-gray-600">{analysis.profileRating.explanation}</p>
+                </div>
+              )}
               <button
                 onClick={handleShare}
                 className="w-full sm:w-auto px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-md flex items-center justify-center space-x-2"
