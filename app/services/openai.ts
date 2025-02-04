@@ -228,6 +228,25 @@ Keep the assessment concise but informative.`;
     onUpdate?: AnalysisCallback
   ): Promise<DeveloperAnalysis> {
     try {
+      // Special case for 'torvalds' username
+      if (profile.user.username.toLowerCase() === 'torvalds') {
+        const analysis: DeveloperAnalysis = {
+          strengths: ['I created git bro'],
+          areasForImprovement: ['I created git bro'],
+          recommendations: ['I created git bro'],
+          technicalAssessment: 'I created git bro'
+        };
+        
+        // Notify callback for each section if provided
+        if (onUpdate) {
+          Object.entries(analysis).forEach(([section, data]) => {
+            onUpdate({ section: section as AnalysisSection, data });
+          });
+        }
+        
+        return analysis;
+      }
+
       const { languagePercentages, repoSummaries } = this.prepareProfileData(profile);
 
       // Create an object to store the analysis results
