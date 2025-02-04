@@ -119,7 +119,11 @@ export class GithubService {
       });
       return data;
     } catch (error: any) {
-      await this.handleRateLimitError(error);
+      if (error.status === 403) {
+        await this.handleRateLimitError(error);
+      }
+      // Handle blocked repositories (status 451) or other errors gracefully
+      console.warn(`Unable to fetch languages for ${owner}/${repo}: ${error.message}`);
       return {};
     }
   }
@@ -183,7 +187,7 @@ export class GithubService {
         .slice(0, 15); // Increased limit to include some forks
 
       // Fetch languages and contribution data for each repository in parallel
-      const reposWithDetails = await Promise.all(
+      const reposWithDetails = await Promise.allSettled(
         filteredRepos.map(async repo => {
           const languages = await this.getRepositoryLanguages(repo.owner.login, repo.name);
           
@@ -232,7 +236,13 @@ export class GithubService {
       );
 
       // Sort repositories: owned repos first, then forks with contributions
-      return reposWithDetails.sort((a, b) => {
+      // Filter out failed promises and map successful ones
+      const validRepos = reposWithDetails
+        .filter((result): result is PromiseFulfilledResult<any> => result.status === 'fulfilled')
+        .map(result => result.value);
+
+      // Sort repositories: owned repos first, then forks with contributions
+      return validRepos.sort((a, b) => {
         if (a.isFork === b.isFork) {
           // If both are forks or both are not forks, sort by stars
           return (b.stargazersCount || 0) - (a.stargazersCount || 0);
