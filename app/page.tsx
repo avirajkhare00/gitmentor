@@ -265,7 +265,8 @@ function ProfileAnalysis() {
         strengths: data.analysis?.strengths || [],
         areasForImprovement: data.analysis?.areasForImprovement || [],
         recommendations: data.analysis?.recommendations || [],
-        technicalAssessment: data.analysis?.technicalAssessment || ''
+        technicalAssessment: data.analysis?.technicalAssessment || '',
+        profileRating: data.analysis?.profileRating || null
       };
       
       setAnalysis(analysisData);
