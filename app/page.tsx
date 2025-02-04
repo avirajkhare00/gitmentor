@@ -593,9 +593,9 @@ function ProfileAnalysis() {
                       <span className="text-gray-500 ml-1">/10</span>
                     </div>
                   </div>
-                  <p className="text-gray-600">
+                  {/* <p className="text-gray-600">
                     <ReactMarkdown>{analysis.profileRating.explanation}</ReactMarkdown>
-                  </p>
+                  </p> */}
                 </div>
               )}
 

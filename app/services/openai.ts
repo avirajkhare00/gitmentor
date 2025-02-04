@@ -77,16 +77,42 @@ ${languagePercentages}
 Top Repositories:
 ${repoSummaries}
 
-Provide a rating out of 10 for this developer's GitHub profile, considering:
-1. Code quality and project diversity
-2. Technical expertise and language proficiency
-3. Contribution frequency and consistency
-4. Project impact (stars, forks, etc.)
-5. Documentation and code organization
+Provide a detailed rating out of 10 for this developer's GitHub profile. Break down your analysis into these categories:
+
+1. Code Quality and Project Diversity (X/10):
+- Evaluate repository structure and organization
+- Assess code complexity and maintainability
+- Consider the variety of projects and their purposes
+
+2. Technical Expertise (X/10):
+- Analyze language proficiency across different technologies
+- Evaluate the complexity of implemented solutions
+- Consider use of modern practices and patterns
+
+3. Contribution Activity (X/10):
+- Assess frequency and consistency of contributions
+- Evaluate engagement with open source
+- Consider long-term commitment to projects
+
+4. Project Impact (X/10):
+- Analyze project popularity (stars, forks)
+- Assess real-world applicability of projects
+- Consider community engagement and collaboration
+
+5. Documentation and Communication (X/10):
+- Evaluate repository documentation quality
+- Assess code comments and readability
+- Consider project descriptions and READMEs
 
 Format your response as:
-Rating: [X]/10
-Explanation: [Brief explanation of the rating]`;
+Rating: [Overall score]/10
+
+Detailed Breakdown:
+[Category name] ([score]/10): [Detailed explanation with specific examples]
+[Repeat for each category]
+
+Overall Assessment:
+[Comprehensive explanation tying together all categories and justifying the final score]`;
 
     const response = await this.openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -106,6 +132,7 @@ Explanation: [Brief explanation of the rating]`;
     const content = response.choices[0].message?.content;
     if (!content) throw new Error('Failed to get profile rating');
 
+    // Extract overall rating
     const ratingMatch = content.match(/Rating:\s*(\d+(?:\.\d+)?)/);
     
     if (!ratingMatch) {
@@ -115,15 +142,29 @@ Explanation: [Brief explanation of the rating]`;
     // Convert the matched rating to a number and divide by 10 if needed
     const rating = parseFloat(ratingMatch[1]);
 
-    const explanationMatch = content.match(/Explanation:\s*(.*)/);
+    // Extract detailed breakdown and overall assessment
+    const sections = content.split('\n\n');
+    const detailedBreakdown = sections.find(s => s.startsWith('Detailed Breakdown:'));
+    const overallAssessment = sections.find(s => s.startsWith('Overall Assessment:'));
+    
+    // Format the explanation as markdown
+    let explanation = '';
+    
+    if (detailedBreakdown) {
+      explanation += detailedBreakdown.replace('Detailed Breakdown:', '### Detailed Breakdown') + '\n\n';
+    }
+    
+    if (overallAssessment) {
+      explanation += overallAssessment.replace('Overall Assessment:', '### Overall Assessment');
+    }
 
-    if (!explanationMatch) {
+    if (!explanation) {
       throw new Error('Failed to parse explanation response');
     }
 
     return {
       score: rating,
-      explanation: explanationMatch[1].trim(),
+      explanation: explanation.trim(),
     };
   }
 
