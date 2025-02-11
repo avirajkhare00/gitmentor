@@ -569,7 +569,7 @@ function ProfileAnalysis() {
                   className="rounded-full"
                 />
                 <div>
-                  <h2 className="text-lg sm:text-xl font-semibold">{userData.name || userData.username}</h2>
+                  <h2 className="text-lg sm:text-xl font-semibold"><a href={`https://github.com/${userData.username}`} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 transition-colors">{userData.name || userData.username}</a></h2>
                   {userData.bio && <p className="text-sm sm:text-base text-gray-600">{userData.bio}</p>}
                 </div>
               </div>
