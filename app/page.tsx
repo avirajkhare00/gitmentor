@@ -735,7 +735,7 @@ function ProfileAnalysis() {
                     <div key={repo.name} className="p-4 border rounded-md">
                       <div className="flex items-start justify-between">
                         <div>
-                          <h4 className="font-medium">{repo.name}</h4>
+                          <h4 className="font-medium"><a href={`https://github.com/${userData.username}/${repo.name}`} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 transition-colors">{repo.name}</a></h4>
                           {repo.description && (
                             <p className="text-gray-600 text-sm mt-1">{repo.description}</p>
                           )}
