@@ -584,21 +584,6 @@ function ProfileAnalysis() {
               </button>
             </div>
 
-            {analysis?.profileRating && (
-                <div className="mt-6 p-6 bg-white rounded-lg shadow-sm border border-gray-100">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">Profile Rating</h3>
-                    <div className="flex items-center">
-                      <span className="text-2xl font-bold text-blue-600">{analysis.profileRating.score.toFixed(1)}</span>
-                      <span className="text-gray-500 ml-1">/10</span>
-                    </div>
-                  </div>
-                  {/* <p className="text-gray-600">
-                    <ReactMarkdown>{analysis.profileRating.explanation}</ReactMarkdown>
-                  </p> */}
-                </div>
-              )}
-
             {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               <div className="p-3 sm:p-4 bg-gray-50 rounded-md text-center">

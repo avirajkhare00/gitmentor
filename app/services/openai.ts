@@ -6,10 +6,6 @@ export interface DeveloperAnalysis {
   areasForImprovement: string[];
   recommendations: string[];
   technicalAssessment: string;
-  profileRating: {
-    score: number;
-    explanation: string;
-  };
 }
 
 export type AnalysisSection = keyof DeveloperAnalysis;
@@ -61,112 +57,7 @@ ${repo.isFork ? `Forked: Yes${repo.hasContributions ? `, Contributions: ${repo.c
     return { languagePercentages, repoSummaries };
   }
 
-  private async getProfileRating(profile: DeveloperProfile, languagePercentages: string, repoSummaries: string): Promise<{ score: number; explanation: string }> {
-    const prompt = `As a technical evaluator, analyze this GitHub profile and provide a rating out of 10:
 
-User: ${profile.user.name || profile.user.username}
-Bio: ${profile.user.bio || 'No bio'}
-Public Repos: ${profile.user.publicRepos}
-Followers: ${profile.user.followers}
-Following: ${profile.user.following}
-Account Created: ${profile.user.createdAt}
-
-Overall Language Distribution:
-${languagePercentages}
-
-Top Repositories:
-${repoSummaries}
-
-Provide a detailed rating out of 10 for this developer's GitHub profile. Break down your analysis into these categories:
-
-1. Code Quality and Project Diversity (X/10):
-- Evaluate repository structure and organization
-- Assess code complexity and maintainability
-- Consider the variety of projects and their purposes
-
-2. Technical Expertise (X/10):
-- Analyze language proficiency across different technologies
-- Evaluate the complexity of implemented solutions
-- Consider use of modern practices and patterns
-
-3. Contribution Activity (X/10):
-- Assess frequency and consistency of contributions
-- Evaluate engagement with open source
-- Consider long-term commitment to projects
-
-4. Project Impact (X/10):
-- Analyze project popularity (stars, forks)
-- Assess real-world applicability of projects
-- Consider community engagement and collaboration
-
-5. Documentation and Communication (X/10):
-- Evaluate repository documentation quality
-- Assess code comments and readability
-- Consider project descriptions and READMEs
-
-Format your response as:
-Rating: [Overall score]/10
-
-Detailed Breakdown:
-[Category name] ([score]/10): [Detailed explanation with specific examples]
-[Repeat for each category]
-
-Overall Assessment:
-[Comprehensive explanation tying together all categories and justifying the final score]`;
-
-    const response = await this.openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are an experienced technical evaluator who provides fair and objective ratings of developer profiles. Be specific and evidence-based in your assessment."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      temperature: 0.7,
-    });
-
-    const content = response.choices[0].message?.content;
-    if (!content) throw new Error('Failed to get profile rating');
-
-    // Extract overall rating
-    const ratingMatch = content.match(/Rating:\s*(\d+(?:\.\d+)?)/);
-    
-    if (!ratingMatch) {
-      throw new Error('Failed to parse rating response');
-    }
-
-    // Convert the matched rating to a number and divide by 10 if needed
-    const rating = parseFloat(ratingMatch[1]);
-
-    // Extract detailed breakdown and overall assessment
-    const sections = content.split('\n\n');
-    const detailedBreakdown = sections.find(s => s.startsWith('Detailed Breakdown:'));
-    const overallAssessment = sections.find(s => s.startsWith('Overall Assessment:'));
-    
-    // Format the explanation as markdown
-    let explanation = '';
-    
-    if (detailedBreakdown) {
-      explanation += detailedBreakdown.replace('Detailed Breakdown:', '### Detailed Breakdown') + '\n\n';
-    }
-    
-    if (overallAssessment) {
-      explanation += overallAssessment.replace('Overall Assessment:', '### Overall Assessment');
-    }
-
-    if (!explanation) {
-      throw new Error('Failed to parse explanation response');
-    }
-
-    return {
-      score: rating,
-      explanation: explanation.trim(),
-    };
-  }
 
   private async getStrengths(profile: DeveloperProfile, languagePercentages: string, repoSummaries: string): Promise<string[]> {
     const prompt = `As a developer career advisor, analyze this GitHub profile for key strengths:
@@ -345,11 +236,7 @@ Keep the assessment concise but informative.`;
           strengths: ['I created git bro'],
           areasForImprovement: ['I created git bro'],
           recommendations: ['I created git bro'],
-          technicalAssessment: 'I created git bro',
-          profileRating: {
-            score: 10,
-            explanation: 'I created git bro'
-          }
+          technicalAssessment: 'I created git bro'
         };
         
         // Notify callback for each section if provided
@@ -370,18 +257,12 @@ Keep the assessment concise but informative.`;
         areasForImprovement: [],
         recommendations: [],
         technicalAssessment: '',
-        profileRating: {
-          score: 0,
-          explanation: ''
-        }
       };
 
       // Helper function to update a section and notify callback
       const updateSection = (section: AnalysisSection, data: string[] | string | { score: number; explanation: string }) => {
         if (section === 'technicalAssessment') {
           (analysis[section] as string) = data as string;
-        } else if (section === 'profileRating') {
-          analysis[section] = data as { score: number; explanation: string };
         } else {
           (analysis[section] as string[]) = data as string[];
         }
@@ -417,13 +298,6 @@ Keep the assessment concise but informative.`;
             console.error('Error getting technical assessment:', error);
             updateSection('technicalAssessment', 'Failed to get technical assessment');
           }),
-
-        this.getProfileRating(profile, languagePercentages, repoSummaries)
-          .then(data => updateSection('profileRating', data))
-          .catch(error => {
-            console.error('Error getting profile rating:', error);
-            updateSection('profileRating', { score: 0, explanation: 'Failed to get profile rating' });
-          })
       ];
 
       // Wait for all promises to complete
